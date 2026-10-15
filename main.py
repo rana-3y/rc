@@ -6,10 +6,8 @@ from flask import Flask, render_template_string, request, jsonify
 
 app = Flask(__name__)
 
-# ファイルの保存先パス（Renderの永続ディスクを使う場合は /data/chat_history.json にするよ）
 HISTORY_FILE = "chat_history.json"
 
-# ファイルからチャット履歴を読み込む関数
 def load_chat_history():
     if os.path.exists(HISTORY_FILE):
         try:
@@ -19,7 +17,6 @@ def load_chat_history():
             return []
     return []
 
-# ファイルにチャット履歴を保存する関数
 def save_chat_history(messages):
     try:
         with open(HISTORY_FILE, "w", encoding="utf-8") as f:
@@ -39,7 +36,6 @@ def index():
 
 @app.route("/get_messages", methods=["GET"])
 def get_messages():
-    # 常にファイルから最新のデータを読み込んで返す
     return jsonify(load_chat_history())
 
 @app.route("/send_message", methods=["POST"])
@@ -50,19 +46,24 @@ def send_message():
     message = request.form.get("message", "").strip()
     
     if message:
+        # 送信者の本当のIPアドレスを取得
         user_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
         if user_ip and ',' in user_ip:
             user_ip = user_ip.split(',')[0].strip()
 
+        # 【重要】Renderのログに出たIPアドレスをここに書き換えてね！
         ADMIN_IP = "123.1.51.210" 
         is_admin = (user_ip == ADMIN_IP)
+
+        # ★他人のブラウザには絶対に見せず、RenderのログにだけIPを出力する（安全）
+        print(f"[ADMIN CHECK] IP: {user_ip} | Name: {user_name} | AdminMatch: {is_admin}")
 
         jst = pytz.timezone('Asia/Tokyo')
         now_str = datetime.now(jst).strftime("%H:%M:%S")
         
-        # 現在の履歴をファイルから読み出す
         chat_messages = load_chat_history()
         
+        # 他人にバレないように名前はそのまま保存するよ
         chat_messages.append({
             "name": user_name, 
             "text": message, 
@@ -73,7 +74,6 @@ def send_message():
         if len(chat_messages) > 20:
             chat_messages.pop(0)
             
-        # 変更した履歴をファイルに保存する
         save_chat_history(chat_messages)
             
     return jsonify({"status": "success"})
