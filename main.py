@@ -14,39 +14,58 @@ JSON_STORAGE_ID = "95433469-a539-4b07-93d8-3310579dfe3a"
 JSON_STORAGE_KEY = "a34426ab-e063-4ba9-8b91-943cdad7b694"
 # =========================================================
 
-URL = f"https://jsonstorage.net/v1/json/{JSON_STORAGE_ID}?apiKey={JSON_STORAGE_KEY}"
+# 正しいURLの住所
+URL_BASE = f"https://jsonstorage.net/v1/json/{JSON_STORAGE_ID}?apiKey={JSON_STORAGE_KEY}"
 
 # 外部データ置き場からチャット履歴を読み込む関数
 def load_chat_history():
     try:
-        response = requests.get(URL, timeout=5)
+        response = requests.get(URL_BASE, timeout=5)
+        # 正常に読み込めたらデータを返す
         if response.status_code == 200:
             data = response.json()
-            # データが正しいリスト形式（[]）ならそのまま返す
             if isinstance(data, list):
                 return data
             else:
-                # ★中身が{}などバグった形になっていたら、ここで正しい形（[]）に自動修復して保存するよ！
-                print("[SYSTEM] データの形が不正だったため、空のリストで自動修復します。")
-                save_chat_history([])
                 return []
-        else:
-            # そもそもJsonStorage側でエラー（404等）が出ている場合も強制リセットを試みる
-            print(f"[SYSTEM] JsonStorageがエラーを返しました({response.status_code})。初期化を試みます。")
-            save_chat_history([])
+        # まだデータが作られていなくて404エラーが出た場合は、自動で空のリストを作ってあげる
+        elif response.status_code == 404:
+            print("[SYSTEM] データボックスが未初期化のため、新規作成を行います。")
+            create_first_chat_box([])
             return []
     except Exception as e:
         print(f"データ読み込みエラー: {e}")
-        return []
+    return []
 
-# 外部データ置き場にチャット履歴を保存する関数
+# 【超重要】一番最初にデータが存在しない場合、新規作成（POST）で箱を作る関数
+def create_first_chat_box(messages):
+    try:
+        headers = {"Content-Type": "application/json"}
+        # 404の時はPUTではなくPOSTで新しく箱を作る必要があるよ
+        post_url = f"https://jsonstorage.net{JSON_STORAGE_KEY}"
+        # あなたのIDを固定して新規作成するためのリクエスト
+        payload = {
+            "id": JSON_STORAGE_ID,
+            "value": json.dumps(messages)
+        }
+        # もし上のやり方でダメな場合を考慮して、通常のURL_BASEへ空のリストをPOST送信する
+        response = requests.post(URL_BASE, data=json.dumps(messages), headers=headers, timeout=5)
+        print(f"[SYSTEM] 初期化POST結果: {response.status_code} | {response.text}")
+    except Exception as e:
+        print(f"初期化POSTエラー: {e}")
+
+# 外部データ置き場にチャット履歴を上書き保存（PUT）する関数
 def save_chat_history(messages):
     try:
         headers = {"Content-Type": "application/json"}
-        # 確実に正しいJSONデータの形にして上書き保存する
-        response = requests.put(URL, data=json.dumps(messages), headers=headers, timeout=5)
+        response = requests.put(URL_BASE, data=json.dumps(messages), headers=headers, timeout=5)
+        
+        # もし上書き（PUT）が拒否されたら、まだ箱がない証拠なので新規作成（POST）に切り替える
         if response.status_code != 200:
-            print(f"データ保存失敗: {response.text}")
+            print(f"[SYSTEM] 上書き失敗({response.status_code})のため、新規作成(POST)を試みます。")
+            response_post = requests.post(URL_BASE, data=json.dumps(messages), headers=headers, timeout=5)
+            if response_post.status_code != 200:
+                print(f"データ保存完全失敗: {response_post.text}")
     except Exception as e:
         print(f"データ保存エラー: {e}")
 
@@ -72,16 +91,13 @@ def send_message():
     message = request.form.get("message", "").strip()
     
     if message:
-        # 送信者の本当のIPアドレスを取得
         user_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
         if user_ip and ',' in user_ip:
             user_ip = user_ip.split(',').strip()
 
-        # 君のIPアドレス
         ADMIN_IP = "123.1.51.210" 
         is_admin = (user_ip == ADMIN_IP)
 
-        # RenderのログにだけIPを出力する（安全）
         print(f"[ADMIN CHECK] IP: {user_ip} | Name: {user_name} | AdminMatch: {is_admin}")
 
         jst = pytz.timezone('Asia/Tokyo')
@@ -96,7 +112,6 @@ def send_message():
             "is_admin": is_admin
         })
         
-        # 最新の20件だけ残す
         if len(chat_messages) > 20:
             chat_messages.pop(0)
             
