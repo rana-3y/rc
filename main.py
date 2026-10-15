@@ -16,12 +16,17 @@ JSON_STORAGE_KEY = "a34426ab-e063-4ba9-8b91-943cdad7b694"
 
 URL = f"https://jsonstorage.net{JSON_STORAGE_ID}?apiKey={JSON_STORAGE_KEY}"
 
-# 外部データ置き場からチャット履歴を読み込む関数
+# 外部データ置き場からチャット履歴を読み込む関数（中身が空っぽでも絶対にエラーにしない！）
 def load_chat_history():
     try:
         response = requests.get(URL, timeout=5)
         if response.status_code == 200:
-            return response.json()
+            data = response.json()
+            # もしデータがリスト形式（[]）ならそのまま返し、空の辞書（{}）とかなら空のリストを返すよ
+            if isinstance(data, list):
+                return data
+            else:
+                return []
     except Exception as e:
         print(f"データ読み込みエラー: {e}")
     return []
@@ -30,7 +35,8 @@ def load_chat_history():
 def save_chat_history(messages):
     try:
         headers = {"Content-Type": "application/json"}
-        response = requests.put(URL, json=messages, headers=headers, timeout=5)
+        # 確実に正しいJSONデータの形にして上書き保存する
+        response = requests.put(URL, data=json.dumps(messages), headers=headers, timeout=5)
         if response.status_code != 200:
             print(f"データ保存失敗: {response.text}")
     except Exception as e:
@@ -61,10 +67,10 @@ def send_message():
         # 送信者の本当のIPアドレスを取得
         user_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
         if user_ip and ',' in user_ip:
-            user_ip = user_ip.split(',')[0].strip()
+            user_ip = user_ip.split(',').strip()
 
         # ※ここに君のIPアドレスを書いてるよ
-        # もし変わったらRenderの「Logs」画面に表示される数字に書き換えてね！
+        # もしネット回線が変わってADMINが外れたら、Renderの「Logs」画面に出る数字に書き換えてね！
         ADMIN_IP = "123.1.51.210" 
         is_admin = (user_ip == ADMIN_IP)
 
