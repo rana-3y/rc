@@ -2,27 +2,39 @@ import os
 import json
 from datetime import datetime
 import pytz
+import requests  # 外部のデータ置き場と通信するために使うよ
 from flask import Flask, render_template_string, request, jsonify
 
 app = Flask(__name__)
 
-HISTORY_FILE = "chat_history.json"
+# =========================================================
+# 【重要】JsonStorageの情報をここにセットしたよ！
+# =========================================================
+JSON_STORAGE_ID = "95433469-a539-4b07-93d8-3310579dfe3a"
+JSON_STORAGE_KEY = "a34426ab-e063-4ba9-8b91-943cdad7b694"
+# =========================================================
 
+URL = f"https://jsonstorage.net{JSON_STORAGE_ID}?apiKey={JSON_STORAGE_KEY}"
+
+# 外部データ置き場からチャット履歴を読み込む関数
 def load_chat_history():
-    if os.path.exists(HISTORY_FILE):
-        try:
-            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            return []
+    try:
+        response = requests.get(URL, timeout=5)
+        if response.status_code == 200:
+            return response.json()
+    except Exception as e:
+        print(f"データ読み込みエラー: {e}")
     return []
 
+# 外部データ置き場にチャット履歴を保存する関数
 def save_chat_history(messages):
     try:
-        with open(HISTORY_FILE, "w", encoding="utf-8") as f:
-            json.dump(messages, f, ensure_ascii=False, indent=4)
+        headers = {"Content-Type": "application/json"}
+        response = requests.put(URL, json=messages, headers=headers, timeout=5)
+        if response.status_code != 200:
+            print(f"データ保存失敗: {response.text}")
     except Exception as e:
-        print(f"ファイル保存エラー: {e}")
+        print(f"データ保存エラー: {e}")
 
 @app.route("/", methods=["GET"])
 def index():
@@ -51,11 +63,12 @@ def send_message():
         if user_ip and ',' in user_ip:
             user_ip = user_ip.split(',')[0].strip()
 
-        # 【重要】Renderのログに出たIPアドレスをここに書き換えてね！
+        # ※ここに君のIPアドレスを書いてるよ
+        # もし変わったらRenderの「Logs」画面に表示される数字に書き換えてね！
         ADMIN_IP = "123.1.51.210" 
         is_admin = (user_ip == ADMIN_IP)
 
-        # ★他人のブラウザには絶対に見せず、RenderのログにだけIPを出力する（安全）
+        # 他人のブラウザには絶対に見せず、RenderのログにだけIPを出力する（安全）
         print(f"[ADMIN CHECK] IP: {user_ip} | Name: {user_name} | AdminMatch: {is_admin}")
 
         jst = pytz.timezone('Asia/Tokyo')
@@ -63,7 +76,6 @@ def send_message():
         
         chat_messages = load_chat_history()
         
-        # 他人にバレないように名前はそのまま保存するよ
         chat_messages.append({
             "name": user_name, 
             "text": message, 
@@ -71,6 +83,7 @@ def send_message():
             "is_admin": is_admin
         })
         
+        # 最新の20件だけ残す
         if len(chat_messages) > 20:
             chat_messages.pop(0)
             
