@@ -10,7 +10,12 @@
         h1, h2 { color: #007bff; border-bottom: 2px solid #007bff; padding-bottom: 5px; }
         .time-box { background: #e9ecef; padding: 15px; border-radius: 5px; text-align: center; font-size: 1.4em; font-weight: bold; margin-bottom: 20px; font-family: monospace; }
         .chat-box { background: #fafafa; border: 1px solid #ddd; height: 250px; overflow-y: auto; padding: 10px; border-radius: 5px; margin-bottom: 10px; }
-        .msg { margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px dashed #eee; }
+        .msg { margin-bottom: 10px; padding: 5px; border-bottom: 1px dashed #eee; border-radius: 4px; }
+        
+        /* ★管理者メッセージ用のオレンジハイライトスタイル */
+        .msg.admin-msg { background: #fff3cd; border: 1px solid #ffeeba; color: #856404; }
+        .admin-badge { color: #fd7e14; font-weight: bold; margin-right: 5px; }
+
         .msg-time { font-size: 0.8em; color: #888; }
         .input-group { display: flex; flex-direction: column; gap: 10px; }
         input[type="text"] { padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
@@ -21,19 +26,14 @@
 <body>
 
 <div class="container">
-    <!-- ① 静岡の現在時刻エリア（中身はJavaScriptでリアルタイムに書き換えるよ） -->
-    <h2>現在時刻(接続先:Tōkai)</h2>
-    <div class="time-box" id="liveClock">
-        読み込み中...
-    </div>
+    <h2>🗺️ 現在時刻(接続先:Tōkai)</h2>
+    <div class="time-box" id="liveClock">読み込み中...</div>
 
-    <!-- ② 自己紹介エリア -->
     <h2>👤 自己紹介</h2>
     <p><strong>名前:</strong> らな</p>
     <p><strong>趣味:</strong> マイクラ、散歩＆お風呂！</p>
     <p><strong>一言:</strong> 一言？なにそれおいしいの？</p>
 
-    <!-- ③ グローバルチャットエリア -->
     <h2>💬 グローバルチャット</h2>
     <div class="chat-box" id="chatBox">
         <p style="color:#aaa; text-align:center;">読み込み中...</p>
@@ -51,35 +51,22 @@
     const chatForm = document.getElementById('chatForm');
     const liveClock = document.getElementById('liveClock');
 
-    // ★【追加】ミリ秒（0.00）までリアルタイムに時計を動かす関数
     function updateClock() {
         const now = new Date();
-        
-        // 年月日を取得
         const year = now.getFullYear();
         const month = String(now.getMonth() + 1).padStart(2, '0');
         const day = String(now.getDate()).padStart(2, '0');
-        
-        // 時分秒を取得
         const hours = String(now.getHours()).padStart(2, '0');
         const minutes = String(now.getMinutes()).padStart(2, '0');
         const seconds = String(now.getSeconds()).padStart(2, '0');
-        
-        // ミリ秒を取得して、上2桁（0.00の形）にする
         const ms = String(now.getMilliseconds()).padStart(3, '0').substring(0, 2);
-        
-        // 画面の時計を書き換え
         liveClock.textContent = `${year}年${month}月${day}日 ${hours}:${minutes}:${seconds}.${ms}`;
     }
-
-    // 10ミリ秒（0.01秒）ごとにupdateClock関数を実行する
     setInterval(updateClock, 10);
 
-
-    // チャットのメッセージを取得する関数
     async function loadMessages() {
         try {
-            const response = await fetch('/get_messages');
+            const response = await fetch('./get_messages');
             const messages = await response.json();
             if (messages.length === 0) {
                 chatBox.innerHTML = '<p style="color:#aaa; text-align:center;">まだメッセージがありません。最初の投稿をどうぞ！</p>';
@@ -87,7 +74,16 @@
             }
             let html = '';
             messages.forEach(msg => {
-                html += `<div class="msg"><strong>${msg.name}</strong> <span class="msg-time">[${msg.time}]</span><br>${msg.text}</div>`;
+                // ★管理者の場合は専用のクラスとバッジをつける
+                const adminClass = msg.is_admin ? 'admin-msg' : '';
+                const adminBadge = msg.is_admin ? '<span class="admin-badge">[ADMIN]</span>' : '';
+
+                html += `
+                    <div class="msg ${adminClass}">
+                        ${adminBadge}<strong>${msg.name}</strong> <span class="msg-time">[${msg.time}]</span><br>
+                        ${msg.text}
+                    </div>
+                `;
             });
             chatBox.innerHTML = html;
         } catch (error) {
@@ -95,7 +91,6 @@
         }
     }
 
-    // 送信ボタンが押されたときの処理
     chatForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const username = document.getElementById('username').value;
@@ -104,14 +99,13 @@
         formData.append('username', username);
         formData.append('message', message);
 
-        await fetch('/send_message', { method: 'POST', body: formData });
+        await fetch('./send_message', { method: 'POST', body: formData });
         document.getElementById('message').value = '';
         loadMessages();
     });
 
-    // 初期読み込み
     loadMessages();
-    setInterval(loadMessages, 3000); // チャットは3秒ごとに自動更新
+    setInterval(loadMessages, 3000);
 </script>
 
 </body>
