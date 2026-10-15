@@ -14,7 +14,7 @@ JSON_STORAGE_ID = "95433469-a539-4b07-93d8-3310579dfe3a"
 JSON_STORAGE_KEY = "a34426ab-e063-4ba9-8b91-943cdad7b694"
 # =========================================================
 
-URL = f"https://jsonstorage.net{JSON_STORAGE_ID}?apiKey={JSON_STORAGE_KEY}"
+URL = f"https://jsonstorage.net/v1/json/{JSON_STORAGE_ID}?apiKey={JSON_STORAGE_KEY}"
 
 # 外部データ置き場からチャット履歴を読み込む関数
 def load_chat_history():
