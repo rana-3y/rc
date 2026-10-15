@@ -16,16 +16,18 @@ JSON_STORAGE_KEY = "a34426ab-e063-4ba9-8b91-943cdad7b694"
 
 URL = f"https://jsonstorage.net{JSON_STORAGE_ID}?apiKey={JSON_STORAGE_KEY}"
 
-# 外部データ置き場からチャット履歴を読み込む関数（中身が空っぽでも絶対にエラーにしない！）
+# 外部データ置き場からチャット履歴を読み込む関数
 def load_chat_history():
     try:
         response = requests.get(URL, timeout=5)
         if response.status_code == 200:
             data = response.json()
-            # もしデータがリスト形式（[]）ならそのまま返し、空の辞書（{}）とかなら空のリストを返すよ
+            # データが正しいリスト形式ならそのまま返す
             if isinstance(data, list):
                 return data
             else:
+                # もし中身が空っぽ（{}など）なら、自動で空のリストにして初期化保存するよ！
+                save_chat_history([])
                 return []
     except Exception as e:
         print(f"データ読み込みエラー: {e}")
@@ -69,12 +71,11 @@ def send_message():
         if user_ip and ',' in user_ip:
             user_ip = user_ip.split(',').strip()
 
-        # ※ここに君のIPアドレスを書いてるよ
-        # もしネット回線が変わってADMINが外れたら、Renderの「Logs」画面に出る数字に書き換えてね！
+        # 君のIPアドレス
         ADMIN_IP = "123.1.51.210" 
         is_admin = (user_ip == ADMIN_IP)
 
-        # 他人のブラウザには絶対に見せず、RenderのログにだけIPを出力する（安全）
+        # RenderのログにだけIPを出力する（安全）
         print(f"[ADMIN CHECK] IP: {user_ip} | Name: {user_name} | AdminMatch: {is_admin}")
 
         jst = pytz.timezone('Asia/Tokyo')
