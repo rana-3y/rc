@@ -22,16 +22,22 @@ def load_chat_history():
         response = requests.get(URL, timeout=5)
         if response.status_code == 200:
             data = response.json()
-            # データが正しいリスト形式ならそのまま返す
+            # データが正しいリスト形式（[]）ならそのまま返す
             if isinstance(data, list):
                 return data
             else:
-                # もし中身が空っぽ（{}など）なら、自動で空のリストにして初期化保存するよ！
+                # ★中身が{}などバグった形になっていたら、ここで正しい形（[]）に自動修復して保存するよ！
+                print("[SYSTEM] データの形が不正だったため、空のリストで自動修復します。")
                 save_chat_history([])
                 return []
+        else:
+            # そもそもJsonStorage側でエラー（404等）が出ている場合も強制リセットを試みる
+            print(f"[SYSTEM] JsonStorageがエラーを返しました({response.status_code})。初期化を試みます。")
+            save_chat_history([])
+            return []
     except Exception as e:
         print(f"データ読み込みエラー: {e}")
-    return []
+        return []
 
 # 外部データ置き場にチャット履歴を保存する関数
 def save_chat_history(messages):
