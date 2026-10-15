@@ -66,9 +66,10 @@
 
     async function loadMessages() {
         try {
-            const response = await fetch('./get_messages');
+            // パスを確実に認識させるために、ドットを外して絶対パスに変更したよ！
+            const response = await fetch('/get_messages');
             const messages = await response.json();
-            if (messages.length === 0) {
+            if (!Array.isArray(messages) || messages.length === 0) {
                 chatBox.innerHTML = '<p style="color:#aaa; text-align:center;">まだメッセージがありません。最初の投稿をどうぞ！</p>';
                 return;
             }
@@ -98,7 +99,7 @@
         formData.append('username', username);
         formData.append('message', message);
 
-        await fetch('./send_message', { method: 'POST', body: formData });
+        await fetch('/send_message', { method: 'POST', body: formData });
         document.getElementById('message').value = '';
         loadMessages();
     });
